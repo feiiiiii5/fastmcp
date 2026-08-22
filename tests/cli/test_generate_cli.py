@@ -974,7 +974,7 @@ class TestGenerateSkillContent:
         ]
         content = generate_skill_content("test", "cli.py", tools)
         assert "(JSON string)" not in content
-        assert "| string |" in content
+        assert "| string \\| null |" in content
         assert "| no |" in content
 
     def test_frontmatter_with_tools_starts_at_column_zero(self):
@@ -1096,6 +1096,28 @@ class TestGenerateSkillContent:
         content = generate_skill_content("test", "cli.py", tools)
         assert "--verbose <value>" not in content
         assert "--name <value>" in content
+
+    def test_optional_boolean_via_anyof_no_value_placeholder(self):
+        tools = [
+            mcp_types.Tool(
+                name="run",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "anyOf": [{"type": "boolean"}, {"type": "null"}],
+                            "default": None,
+                        },
+                    },
+                },
+            ),
+        ]
+
+        content = generate_skill_content("test", "cli.py", tools)
+
+        # Cyclopts renders bool | None as a flag, so SKILL.md must too.
+        assert "--enabled <value>" not in content
+        assert "| boolean \\| null |" in content
 
     def test_server_name_in_header(self):
         content = generate_skill_content("My Weather API", "cli.py", [])

@@ -593,6 +593,18 @@ def _param_to_cli_flag(prop_name: str) -> str:
 
 def _schema_type_label(prop_schema: dict[str, Any]) -> str:
     """Return a human-readable type label for a property schema."""
+    # Combinators can wrap scalar types and optionals; pydantic emits them for
+    # every Python union, so resolve their labels the same way as annotations.
+    for combinator in ("anyOf", "oneOf"):
+        branches = prop_schema.get(combinator)
+        if isinstance(branches, list) and branches:
+            labels: list[str] = []
+            for branch in branches:
+                label = _schema_type_label(branch)
+                if label not in labels:
+                    labels.append(label)
+            return " | ".join(labels)
+
     schema_type = prop_schema.get("type", "string")
     if isinstance(schema_type, list):
         labels = [_JSON_SCHEMA_TYPE_LABELS.get(t, t) for t in schema_type]
@@ -610,6 +622,12 @@ def _schema_type_label(prop_schema: dict[str, Any]) -> str:
     return label
 
 
+def _schema_is_boolean(prop_schema: dict[str, Any]) -> bool:
+    """Return whether a schema represents only boolean values or null."""
+    python_type, needs_json = _schema_to_python_type(prop_schema)
+    return not needs_json and set(python_type.split(" | ")) <= {"bool", "None"}
+
+
 def _tool_skill_section(tool: mcp_types.Tool, cli_filename: str) -> str:
     """Generate a SKILL.md section for a single tool."""
     schema = tool.input_schema
@@ -620,10 +638,7 @@ def _tool_skill_section(tool: mcp_types.Tool, cli_filename: str) -> str:
     flag_parts_list: list[str] = []
     for p, p_schema in properties.items():
         flag = _param_to_cli_flag(p)
-        schema_type = p_schema.get("type")
-        is_bool = schema_type == "boolean" or (
-            isinstance(schema_type, list) and "boolean" in schema_type
-        )
+        is_bool = _schema_is_boolean(p_schema)
         if is_bool:
             flag_parts_list.append(flag)
         else:
