@@ -329,7 +329,7 @@ def dedupe_with_versions(
         if any(c.version is not None for c in versions):
             all_versions = sorted(
                 [c.version for c in versions if c.version is not None],
-                key=parse_version_key,
+                key=lambda version: (parse_version_key(version), version),
                 reverse=True,
             )
             meta = highest.meta or {}

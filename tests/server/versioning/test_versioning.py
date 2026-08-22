@@ -14,6 +14,7 @@ from fastmcp.utilities.versions import (
     VersionKey,
     VersionSpec,
     compare_versions,
+    dedupe_with_versions,
     is_version_greater,
     version_sort_key,
 )
@@ -185,6 +186,23 @@ class TestVersionSelectionDeterminism:
         assert fwd is not None and rev is not None
         # Deterministic regardless of order (previously order-dependent).
         assert fwd.version == rev.version == "1.0"
+
+    def test_dedupe_versions_metadata_is_registration_order_independent(self):
+        """Equivalent spellings appear in the same metadata order either way."""
+
+        forward = dedupe_with_versions(
+            [_tool("1"), _tool("1.0")], key_fn=lambda tool: tool.name
+        )
+        reverse = dedupe_with_versions(
+            [_tool("1.0"), _tool("1")], key_fn=lambda tool: tool.name
+        )
+
+        forward_tool = forward[0]
+        reverse_tool = reverse[0]
+        assert forward_tool.meta is not None
+        assert reverse_tool.meta is not None
+        assert forward_tool.meta["fastmcp"]["versions"] == ["1.0", "1"]
+        assert reverse_tool.meta["fastmcp"]["versions"] == ["1.0", "1"]
 
 
 class TestComponentVersioning:
